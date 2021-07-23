@@ -17,3 +17,6 @@ Control for transformer welder based on Arduino Uno
 - 3 Digital Outputs (Main contactor, Gas valve, Motor control)
 
 main contactor, gas valve run on 25V AC, Wirefeed motor at 24V DC. Usage of relays for 25V AC, MOSFET board for PWM motor control
+
+programmed using VSCode
+https://code.visualstudio.com
