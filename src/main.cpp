@@ -49,6 +49,8 @@ long nTStop;              //saving system time for postflow
 long nTDottingDur;        //saving system time for dotting duration
 long nTDottingPause;      //saving system time for dotting pause
 long nTPWM;               //saving system time for pwm control
+long curmillis;           //saving curent system time
+long curmicros;           //saving curent system time
 
 void setup() {
   //assigning pin modes
@@ -63,6 +65,8 @@ void ReadInput(){
   //reading inputs and writing to local variables
   b_I_Dotting = !digitalRead(IbDotting);
   b_I_ButtonPress = !digitalRead(IbButtonPress);
+  curmillis = millis();
+  curmicros = micros();
 }
 
 void ReadAnalog(){
@@ -83,14 +87,14 @@ void WriteOutput(){
 
 void TurningOn(){
   //function for preflow
-  if ((!bButtonOperated) & b_I_ButtonPress){
-    nTStart = millis();
+  if ((!bButtonOperated) && b_I_ButtonPress){
+    nTStart = curmillis;
     bButtonOperated = true;
     b_O_GasValve = true;
   }
 
   else if (bButtonOperated){
-    if (nTStart + (t_I_GasOn * nFactTON) <= millis()){
+    if (nTStart + (t_I_GasOn * nFactTON) <= curmillis){
       b_O_MainContactor = true;
     }
   }
@@ -102,18 +106,18 @@ void TurningOn(){
 
 void Pulsing(){
   //function for dotting
-  if (b_O_MainContactor & (!bDottingActiv)){
-    nTDottingDur = millis();
+  if (b_O_MainContactor && (!bDottingActiv)){
+    nTDottingDur = curmillis;
     bDottingActiv = true;
   }
-  else if (bDottingActiv & b_O_MainContactor){    //Dotting duration
-    if (nTDottingDur + (t_I_DottingDur * nFactDotDur) <= millis()){
+  else if (bDottingActiv && b_O_MainContactor){    //Dotting duration
+    if (nTDottingDur + (long(t_I_DottingDur) * nFactDotDur) <= curmillis){
       b_O_MainContactor = false;
-      nTDottingPause = millis();
+      nTDottingPause = curmillis;
     }
   }
-  else if (bDottingActiv & (!b_O_MainContactor)){ //Dotting pause
-    if (nTDottingPause + (t_I_DottingPause * nFactDotPau) <= millis()){
+  else if (bDottingActiv && (!b_O_MainContactor)){ //Dotting pause
+    if (nTDottingPause + (long(t_I_DottingPause) * nFactDotPau) <= curmillis){
       b_O_MainContactor = true;
       bDottingActiv = false;
     }
@@ -126,17 +130,17 @@ void Pulsing(){
 void WireFeed(){
   //function for pwm control of wirefeed
   if (!bPwmActiv){
-    nTPWM = micros();
+    nTPWM = curmicros;
     bPwmActiv = true;
     b_O_WireFeed = true;
   }
-  else if (bPwmActiv){
+  if (bPwmActiv){
     nPWMHIGH = (1023 - n_I_SpeedWire);
     nPWMLOW = n_I_SpeedWire;
-    if (nTPWM + nPWMHIGH <= micros()){
+    if (nTPWM + nPWMHIGH <= curmicros){
       b_O_WireFeed = false;
     }
-    else if (nTPWM + nPWMHIGH + nPWMLOW <= micros()){
+    if (nTPWM + nPWMHIGH + nPWMLOW <= curmicros){
       bPwmActiv = false;
     }
     else{
@@ -150,15 +154,17 @@ void WireFeed(){
 
 void TurningOff(){
   //function for postflow
-  if (bButtonOperated & (!b_I_ButtonPress)){
+  if (bButtonOperated && (!b_I_ButtonPress)){
     b_O_MainContactor = false;
     bButtonOperated = false;
-    nTStop = millis();
+    bTurningOff = true;
+    nTStop = curmillis;
   }
 
   else if (bTurningOff){
-    if (nTStop + (t_I_GasOff * nFactTOF) <= millis()){
+    if (nTStop + (t_I_GasOff * nFactTOF) <= curmillis){
       b_O_GasValve = false;
+      bTurningOff = false;
     }
   }
 
@@ -176,7 +182,7 @@ void loop() {
   }
   TurningOn();
 
-  if (b_I_Dotting & bButtonOperated & b_I_ButtonPress){   //if switch for dotting is toggled
+  if (b_I_Dotting && bButtonOperated && b_I_ButtonPress){   //if switch for dotting is toggled
     Pulsing();          
   }
 
