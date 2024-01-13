@@ -9,8 +9,8 @@ int ItGasOff    	  = A1;
 int InSpeedWire     = A2;
 int ItDottingDurr   = A3;
 int ItDottingPause  = A4;
-int IbDotting       = 2;
-int IbButtonPress   = 12;
+int IbDotting       = 13;
+int IbButtonPress   = 7;
 int ObMainContactor = 11;
 int obGasValve      = 10;
 int OpwmWireFeed    = 9;
@@ -39,7 +39,7 @@ int nFactDotPau = 4;
 bool bButtonOperated;     //button operated
 bool bTurningOff;         //postflow active
 bool bPwmActiv;           //PWM active
-bool bDottingActiv;       //Dotting active
+int  nDottingStep;        //Dotting step
 long nPWMHIGH;            //time for pwm pulse high
 long nPWMLOW;             //time for pwm pulse low
 
@@ -91,10 +91,12 @@ void TurningOn(){
     nTStart = curmillis;
     bButtonOperated = true;
     b_O_GasValve = true;
+    bTurningOff = false;
+    nDottingStep = 0;
   }
 
   else if (bButtonOperated){
-    if (nTStart + (t_I_GasOn * nFactTON) <= curmillis){
+    if ((nTStart + (t_I_GasOn * nFactTON) <= curmillis) && (nTStart + ((t_I_GasOn + 200) * nFactTON) >= curmillis)){
       b_O_MainContactor = true;
     }
   }
@@ -106,24 +108,32 @@ void TurningOn(){
 
 void Pulsing(){
   //function for dotting
-  if (b_O_MainContactor && (!bDottingActiv)){
-    nTDottingDur = curmillis;
-    bDottingActiv = true;
-  }
-  else if (bDottingActiv && b_O_MainContactor){    //Dotting duration
-    if (nTDottingDur + (long(t_I_DottingDur) * nFactDotDur) <= curmillis){
-      b_O_MainContactor = false;
-      nTDottingPause = curmillis;
-    }
-  }
-  else if (bDottingActiv && (!b_O_MainContactor)){ //Dotting pause
-    if (nTDottingPause + (long(t_I_DottingPause) * nFactDotPau) <= curmillis){
-      b_O_MainContactor = true;
-      bDottingActiv = false;
-    }
-  }
-  else{
-    return;
+  switch (nDottingStep){
+    case 0:
+      if(b_O_MainContactor){
+        nTDottingDur = curmillis;
+        nDottingStep = 1;
+      }
+      break;
+    
+    case 1:
+      if (nTDottingDur + (long(t_I_DottingDur) * nFactDotDur) <= curmillis){
+        b_O_MainContactor = false;
+        nTDottingPause = curmillis;
+        nDottingStep = 2;
+      }
+      break;
+
+    case 2:
+      if (nTDottingPause + (long(t_I_DottingPause) * nFactDotPau) <= curmillis){
+        b_O_MainContactor = true;
+        nDottingStep = 0;
+      }
+      break;
+
+    default:
+      nDottingStep = 0;
+      break;
   }
 }
 
@@ -156,6 +166,7 @@ void TurningOff(){
   //function for postflow
   if (bButtonOperated && (!b_I_ButtonPress)){
     b_O_MainContactor = false;
+    b_O_WireFeed = false;
     bButtonOperated = false;
     bTurningOff = true;
     nTStop = curmillis;
